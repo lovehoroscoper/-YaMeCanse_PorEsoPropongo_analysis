@@ -1,7 +1,7 @@
 #YaMeCanse Por Eso Propongo - text analysis
 ==================================
 
-Code for performing various NLP analyses on postcard texts for initiative #YaMeCanse Por Eso Propongo on postcard.com -> http://postcard.com/join-a-movement/15
+Code for performing various NLP analyses on postcard texts for initiative <a href="http://postcard.com/join-a-movement/15"> #YaMeCanse Por Eso Propongo</a> on postcard.com -> http://postcard.com/join-a-movement/15
 
 
 <ul>
