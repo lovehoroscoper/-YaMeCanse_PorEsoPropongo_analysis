@@ -1,7 +1,7 @@
 #YaMeCanse Por Eso Propongo - text analysis
 ==================================
 
-Code for performing various NLP analyses for movement <a href="http://postcard.com/join-a-movement/15"> #YaMeCanse Por Eso Propongo</a> on <a href="http://postcard.com/">postcard.com</a> where people create postcards with concrete proposal to change Mexico. 
+Code for performing various NLP analyses for movement <a href="http://postcard.com/join-a-movement/15"> #YaMeCanse Por Eso Propongo</a> on <a href="http://postcard.com/">postcard.com</a> where people create postcards with concrete proposals to change Mexico. 
 
 <ul>
   <li> building algorithm for distilling phrases that synthesize proposals on postcard text (complete) </li>
