@@ -5,7 +5,8 @@ Code for performing various NLP analyses on postcard texts for initiative #YaMeC
 
 
 <ul>
-  <li> creating wordclouds for most common terms in the data, and of highly correlated words with most frequent terms (complete) </li>
+  <li> building algorithm for distilling phrases that synthesize proposals on postcard text </li>
+  <li> creating wordclouds for most common terms in the data (complete) </li>
   <li> Pointwise Mutual Information (PMI) algorithms to parse out intelligible phrases from the text (in progress) </li> 
 </ul>
 
