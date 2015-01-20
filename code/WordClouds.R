@@ -12,7 +12,7 @@
 #       Data Output:    raw_phrases.txt
 #                       data_phrases.txt
 #       Previous files: NONE
-#       Dependencies:   NONE
+#       Dependencies:   CreateDictionary.R (dictionary for stem completion)
 #       Status:         IN PROGRESS
 #       Machine:        Mac
 #  ####################################################################### 
@@ -27,6 +27,9 @@ library(foreign)
 library(data.table)
 library(tm)
 library(wordcloud)
+library(ngram)
+library(stringr)
+
 
 setwd("~/Documents/#YaMeCanse_postales")
 getwd()
@@ -51,74 +54,85 @@ length(proposals)                              # verifies how many lines were lo
 text <- VCorpus(VectorSource(proposals), readerControl= list(language = "spanish"))
 inspect(text[1:10])
 
-# add needed words to stopwords
-words = c(stopwords("spanish"), "#", "yamecanse", "yamecansé", "yamecansepor", "poresopropongo", 
+# complements list of stopwords
+stopwords = c(stopwords("spanish"), "#", "yamecanse", "yamecansé", "yamecansepor", "poresopropongo", 
           "yamecanseporesopropongo", "yamecanséporesopropongo", "por", "eso", "propongo", "que", 
           "canse", "cansé", "ser", "así", "asi", "cada", "mas", "solo", "cualquier", "sólo", "etc", 
-          "yamecansè", "yamecansépor", "tan", "yame", "yamecanséde", "yamecansédetener", 
-          "yamécansépor", "yamecanséyporesopropongo", "yamecase", "yopropongoquien")
+          "yamecansè", "yamecansépor", "tan", "yame", "yamecanséde", "yamecansédetener", "aunque", 
+          "yamécansépor", "yamecanséyporesopropongo", "yamecase", "yopropongoquien", "yanomás",
+          "queremos", "quiera", "tal", "pido", "yopropongo")
 
 # transform text in corpus to usable bits
 text <- tm_map(text, content_transformer(tolower), mc.cores=1) # makes lowercase
 text <- tm_map(text, removeNumbers)                            # removes numbers
 text <- tm_map(text, removePunctuation)                        # removes punctuation
-text <- tm_map(text, removeWords, words, lazy=TRUE)            # removes useless words
+text <- tm_map(text, removeWords, stopwords, lazy=TRUE)        # removes useless words
 text <- tm_map(text, stripWhitespace)                          # removes white space
-# text.copy <- text # creates copy to be used as dictionary
-# text <- tm_map(text, stemDocument, language ="spanish")      # stems text
-# text <- tm_map(text, stemCompletion, dictionary = text.copy ) # completes stems w/most freq word
+# text <- tm_map(text, stemDocument, language ="spanish")        # stems text
+# text <- tm_map(text, stemCompletion, dictionary = dictionary ) # completes stems w/ ad hoc dic
 inspect(text[1:10])
 
 # perform manual replacements of text as a quicker alternative to stemming/completing 
 ReplaceText <- content_transformer(function(x, from, to) gsub(from, to, x))
-text <- tm_map(text, ReplaceText, "derechos", "derecho")
-text <- tm_map(text, ReplaceText, "familias", "familia")
-text <- tm_map(text, ReplaceText, "politicos", "políticos")
-text <- tm_map(text, ReplaceText, "publicos", "públicos")
-text <- tm_map(text, ReplaceText, "publico", "público")
-text <- tm_map(text, ReplaceText, "salarios", "salario")
-text <- tm_map(text, ReplaceText, "sueldo", "salario")
-text <- tm_map(text, ReplaceText, "sueldos", "salario")
-text <- tm_map(text, ReplaceText, "mexico", "méxico")
-text <- tm_map(text, ReplaceText, "país", "méxico")
-text <- tm_map(text, ReplaceText, "pais", "país")
-text <- tm_map(text, ReplaceText, "funcionarios", "funcionario")
-text <- tm_map(text, ReplaceText, "funcionarioes", "funcionario")
-text <- tm_map(text, ReplaceText, "servidor", "funcionario")
-text <- tm_map(text, ReplaceText, "servidores", "funcionario")
-text <- tm_map(text, ReplaceText, "presupuesto", "dinero")
-text <- tm_map(text, ReplaceText, "recursos", "dinero")
-text <- tm_map(text, ReplaceText, "dineros", "dinero")
-text <- tm_map(text, ReplaceText, "ciudadanos", "mexicanos")
-text <- tm_map(text, ReplaceText, "ciudadano", "mexicanos")
-text <- tm_map(text, ReplaceText, "gente", "mexicanos")
-text <- tm_map(text, ReplaceText, "personas", "mexicanos")
-text <- tm_map(text, ReplaceText, "pueblo", "mexicanos")
-text <- tm_map(text, ReplaceText, "sociedad", "mexicanos")
-text <- tm_map(text, ReplaceText, "ciudadanía", "mexicanos")
-text <- tm_map(text, ReplaceText, "año", "años")
-text <- tm_map(text, ReplaceText, "añosss", "años")
-text <- tm_map(text, ReplaceText, "creación", "crear")
-text <- tm_map(text, ReplaceText, "cree", "crear")
-text <- tm_map(text, ReplaceText, "cumplan", "cumplir")
-text <- tm_map(text, ReplaceText, "disminución", "disminuir")
-text <- tm_map(text, ReplaceText, "evaluaciones", "evaluación")
-text <- tm_map(text, ReplaceText, "deben", "debe")
-text <- tm_map(text, ReplaceText, "hagan", "hacer")
-text <- tm_map(text, ReplaceText, "epn", "EPN")
-text <- tm_map(text, ReplaceText, "enrique peña nieto", "EPN")
-text <- tm_map(text, ReplaceText, "enrique pena nieto", "EPN")
-text <- tm_map(text, ReplaceText, "peña nieto", "EPN")
-text <- tm_map(text, ReplaceText, "pena nieto", "EPN")
-text <- tm_map(text, ReplaceText, "enrique peña", "EPN")
-text <- tm_map(text, ReplaceText, "enrique pena", "EPN")
-text <- tm_map(text, ReplaceText, "peña", "EPN")
-#text <- tm_map(text, ReplaceText, "enrique", "EPN")
-#text <- tm_map(text, ReplaceText, "peña", "EPN")
-#text <- tm_map(text, ReplaceText, "nieto", "EPN")
-#text <- tm_map(text, ReplaceText, "enrique", "EPN")
-#text <- tm_map(text, ReplaceText, "peña", "EPN")
-#text <- tm_map(text, ReplaceText, "nieto", "EPN")
+text <- tm_map(text, ReplaceText, "\\bpresidentes\\b", "presidente")
+text <- tm_map(text, ReplaceText, "\\breducción\\b", "reducir")
+text <- tm_map(text, ReplaceText, "\\breduzcan\\b", "reducir")
+text <- tm_map(text, ReplaceText, "\\beducacion\\b", "educación")
+text <- tm_map(text, ReplaceText, "\\bmejores\\b", "mejor")
+text <- tm_map(text, ReplaceText, "\\brenuncia\\b", "renuncie")
+text <- tm_map(text, ReplaceText, "\\beliminación\\b", "eliminar")
+text <- tm_map(text, ReplaceText, "\\belimine\\b", "eliminar")
+text <- tm_map(text, ReplaceText, "\\bpolítico\\b", "políticos")
+text <- tm_map(text, ReplaceText, "\\bpensiones\\b", "pensión")
+text <- tm_map(text, ReplaceText, "\\bvitalicias\\b", "vitalicia")
+text <- tm_map(text, ReplaceText, "\\bcandidato\\b", "candidatos")
+text <- tm_map(text, ReplaceText, "\\bdisminución\\b", "reducir")
+text <- tm_map(text, ReplaceText, "\\bdisminuir\\b","reducir") 
+text <- tm_map(text, ReplaceText, "\\bdisminuya\\b", "reducir") 
+text <- tm_map(text, ReplaceText, "\\breduzca\\b", "reducir")
+text <- tm_map(text, ReplaceText, "\\bderechos\\b", "derecho")
+text <- tm_map(text, ReplaceText, "\\bfamilias\\b", "familia")
+text <- tm_map(text, ReplaceText, "\\bpolicias\\b", "policía")
+text <- tm_map(text, ReplaceText, "\\bpolicías\\b", "policía")
+text <- tm_map(text, ReplaceText, "\\bpoliticos\\b", "políticos")
+text <- tm_map(text, ReplaceText, "\\bpolitica\\b", "política")
+text <- tm_map(text, ReplaceText, "\\bpublicos\\b", "público")
+text <- tm_map(text, ReplaceText, "\\bpublico\\b", "público")
+text <- tm_map(text, ReplaceText, "\\bpúblicos\\b", "público")
+text <- tm_map(text, ReplaceText, "\\bsalarios\\b", "salario")
+text <- tm_map(text, ReplaceText, "\\bsueldo\\b", "salario")
+text <- tm_map(text, ReplaceText, "\\bsueldos\\b", "salario")
+text <- tm_map(text, ReplaceText, "\\bmexico\\b", "méxico")
+text <- tm_map(text, ReplaceText, "\\bpaís\\b", "méxico")
+text <- tm_map(text, ReplaceText, "\\bpais\\b", "país")
+text <- tm_map(text, ReplaceText, "\\bfuncionarios\\b", "funcionario")
+text <- tm_map(text, ReplaceText, "\\bservidor\\b", "funcionario")
+text <- tm_map(text, ReplaceText, "\\bservidores\\b", "funcionario")
+text <- tm_map(text, ReplaceText, "\\bpresupuesto\\b", "dinero")
+text <- tm_map(text, ReplaceText, "\\brecursos\\b", "dinero")
+text <- tm_map(text, ReplaceText, "\\bdineros\\b", "dinero")
+text <- tm_map(text, ReplaceText, "\\bciudadanos\\b", "mexicanos")
+text <- tm_map(text, ReplaceText, "\\bciudadano\\b", "mexicanos")
+text <- tm_map(text, ReplaceText, "\\bgente\\b", "mexicanos")
+text <- tm_map(text, ReplaceText, "\\bpersonas\\b", "mexicanos")
+text <- tm_map(text, ReplaceText, "\\bpueblo\\b", "mexicanos")
+text <- tm_map(text, ReplaceText, "\\bsociedad\\b", "mexicanos")
+text <- tm_map(text, ReplaceText, "\\bciudadanía\\b", "mexicanos")
+text <- tm_map(text, ReplaceText, "\\baño\\b", "años")
+text <- tm_map(text, ReplaceText, "\\bcreación\\b", "crear")
+text <- tm_map(text, ReplaceText, "\\bcree\\b", "crear")
+text <- tm_map(text, ReplaceText, "\\bcumplan\\b", "cumplir")
+text <- tm_map(text, ReplaceText, "\\bevaluaciones\\b", "evaluación")
+text <- tm_map(text, ReplaceText, "\\bdeben\\b", "debe")
+text <- tm_map(text, ReplaceText, "\\bhagan\\b", "hacer")
+text <- tm_map(text, ReplaceText, "\\bepn\\b", "EPN")
+text <- tm_map(text, ReplaceText, "\\benrique peña nieto\\b", "EPN")
+text <- tm_map(text, ReplaceText, "\\benrique pena nieto\\b", "EPN")
+text <- tm_map(text, ReplaceText, "\\bpeña nieto\\b", "EPN")
+text <- tm_map(text, ReplaceText, "\\bpena nieto\\b", "EPN")
+text <- tm_map(text, ReplaceText, "\\benrique peña\\b", "EPN")
+text <- tm_map(text, ReplaceText, "\\benrique pena\\b", "EPN")
+text <- tm_map(text, ReplaceText, "\\bpeña\\b", "EPN")
 inspect(text[1:10])
 
 # CREATE TERM DOCUMENT MATRIX TO EXPLORE WORD FREQUENCIES
@@ -128,7 +142,6 @@ FreqTerms <- findFreqTerms(tdm, 50)      # identify most common words in dataset
 # dict <- unique(rownames(as.matrix(tdm)))   # creates dictionary of unique words
 
 # creates a file with (sorted) word frequencies 
-
 frequencies <- rowSums(as.matrix(tdm))
 names(frequencies) <- rownames(as.matrix(tdm))
 frequencies <- sort(frequencies, decreasing=T)
@@ -146,7 +159,7 @@ frequencies[1:150, "freq", drop=FALSE]    # shows 150 most common words
 # 4) clean and construct phrases from the bag for each most-common-term
 # 5) classify and subclassify phrases
 
-# Create a function that distill phrase elements related to most common words with 
+# Create a function that distills phrase elements related to most common words with 
 # two filters: words correlated above 0.10, and with sparsity > 10% 
 
 PhrasePrimer <- function(wordlist, corr = 0.1, perc = 0.1) {
@@ -180,8 +193,68 @@ PhrasePrimer <- function(wordlist, corr = 0.1, perc = 0.1) {
                 row.names = FALSE, fileEncoding = "UTF-8")
 }
 
-common.words <- rownames(frequencies)[1:100]          # gets 100 most common terms in text
+common.words <- rownames(frequencies)[1:150]          # gets 100 most common terms in text
 PhrasePrimer(common.words, corr = 0.1, perc = 0.15)   # applies function to distill phrase elements
+
+
+# A couple of useful fuctions to explore other terms, their clusters and frequencies
+
+FrequencyFinder <-function(term) {                             # produces frequency of word
+    f <- frequencies$freq[rownames(frequencies) == term]
+    print(paste0(term, " appears ", f, " times"))
+}
+
+ClusterFinder <- function(wordlist, corr = 0.1, perc = 0.1) { # produces all useful info for word 
+    word <- NA
+    phrase <- NA
+    phrase.list <- data.frame(word, phrase)    
+    for (w in wordlist) {
+        correlates <- as.data.frame(findAssocs(tdm, w, corr))      # gets list of correlated words
+        bag <- merge(correlates, frequencies, by = "row.names")    # creates dataframe w corr/freq    
+        bag$perc <- bag$freq/frequencies$freq[rownames(frequencies) == w]  # computes percentages
+        word <- w
+        phrase <- w
+        for (j in bag$Row.names) {
+            if (bag$perc[bag$Row.names == j] > perc){              # drops sparse terms
+                phrase <- c(phrase, j)
+            }
+        }    
+        phrase <- paste(phrase, collapse = " ")                    # makes phrase elements
+        newrow <- c(word, phrase) 
+        phrase.list <- rbind(phrase.list, newrow)
+        f <- frequencies$freq[rownames(frequencies) == wordlist]
+        print(paste0(w, " appears ", f, " times"))
+        print(bag)
+        print(paste0("cluster: ", phrase))
+    }
+}
+
+# AN INITIAL LOOK INTO NGRAMS
+
+body <- tolower(as.vector(paste(proposals, collapse = " ")))  # makes lowercase
+#body <- tolower(proposals[1])            # makes lowercase
+body <- gsub("[[:punct:]]", "", body)    # removes punctuation
+body <- gsub("[[:digit:]]", "", body)    # removes numbers
+for (sw in stopwords) {                  # removes stopwords
+    body <- gsub(paste0('\\b', sw, '\\b'), "", body)
+}
+body <- str_trim(body)                   # removes most whitespace
+
+bigrams <- ngram(body, n=2)
+get.ngrams(bigrams)
+bi_grams <- get.ngrams(bigrams)
+
+for (i in 1:50) {
+    print(paste0(bi_grams[i], " appears ", sum(str_count(bi_grams, bi_grams[i])), " times"))
+}
+
+
+trigrams <- ngram(body, n=3)
+get.ngrams(trigrams)
+quadgrams <- ngram(body, n=4)
+get.ngrams(quadgrams)
+
+
 
 
 # CREATES WORDCLOUDS
@@ -218,5 +291,3 @@ smallClouds <- function(word) {
 for (i in FreqTerms) {
     smallClouds(i)
 }
-
-plot(tdm, terms =findFreqTerms(dtm, lowfreq =100)[1:50],corThreshold=0.5)
