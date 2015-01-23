@@ -7,10 +7,10 @@
 #                       phrases that syntesize proposals, and creates 
 #                       WordCloud graphs for 
 #                       #YaMeCansePorEsoPropongo data
-#       Input Files:    Textos al 11 de enero de 2015.csv                         
+#       Input Files:    Postcard5.5K_tab_150121.txt                         
 #       Output Files:   wordcloud_all.pdf
-#       Data Output:    raw_phrases.txt
-#                       data_phrases.txt
+#       Data Output:    raw_phrases_YYMMDD.txt
+#                       data_phrases_YYMMDD.txt
 #       Previous files: NONE
 #       Dependencies:   CreateDictionary.R (dictionary for stem completion)
 #       Status:         IN PROGRESS
@@ -27,9 +27,7 @@ library(foreign)
 library(data.table)
 library(tm)
 library(wordcloud)
-library(ngram)
-library(stringr)
-
+library(RWeka)
 
 setwd("~/Documents/#YaMeCanse_postales")
 getwd()
@@ -38,7 +36,7 @@ getwd()
 #       Also, file is tab-delimited text to avoid confusions with commas in the text
 
 data <- as.data.table(read.delim(
-    "data/Textos al 11 de enero de 2015.csv",
+    "data/raw/Postcard5.5K_tab_150121.txt",
     header=TRUE, sep="\t", na.strings = "NA", fileEncoding = "UTF-16"))
 names(data)                                 # verifies all variables are loaded properly
 length(data$ID)                             # verifies that no observations were lost
@@ -48,8 +46,12 @@ head(data)                                  # checks for possible errors in matr
 # PROCESSING DATA WITH NLP TOOLS
 
 proposals <- data$Body[!is.na(data$Body)]      # eliminates empty postcards
+print(paste0(length(data$ID)-length(proposals), " empty postcards eliminated"))
+nonempty <- length(proposals)
 proposals <- proposals[!duplicated(proposals)] # eliminates duplicates 
-length(proposals)                              # verifies how many lines were lost
+print(paste0(nonempty-length(proposals), " duplicate postcards eliminated"))
+print(paste0("Currently, ", length(proposals), " unique postcards in database"))
+
 
 text <- VCorpus(VectorSource(proposals), readerControl= list(language = "spanish"))
 inspect(text[1:10])
@@ -60,13 +62,13 @@ stopwords = c(stopwords("spanish"), "#", "yamecanse", "yamecansé", "yamecansepo
           "canse", "cansé", "ser", "así", "asi", "cada", "mas", "solo", "cualquier", "sólo", "etc", 
           "yamecansè", "yamecansépor", "tan", "yame", "yamecanséde", "yamecansédetener", "aunque", 
           "yamécansépor", "yamecanséyporesopropongo", "yamecase", "yopropongoquien", "yanomás",
-          "queremos", "quiera", "tal", "pido", "yopropongo")
+          "queremos", "quiera", "tal", "pido", "yopropongo", "º")
 
 # transform text in corpus to usable bits
 text <- tm_map(text, content_transformer(tolower), mc.cores=1) # makes lowercase
 text <- tm_map(text, removeNumbers)                            # removes numbers
 text <- tm_map(text, removePunctuation)                        # removes punctuation
-text <- tm_map(text, removeWords, stopwords, lazy=TRUE)        # removes useless words
+text <- tm_map(text, removeWords, stopwords, lazy=TRUE)        # removes expendable words
 text <- tm_map(text, stripWhitespace)                          # removes white space
 # text <- tm_map(text, stemDocument, language ="spanish")        # stems text
 # text <- tm_map(text, stemCompletion, dictionary = dictionary ) # completes stems w/ ad hoc dic
@@ -74,7 +76,7 @@ inspect(text[1:10])
 
 # perform manual replacements of text as a quicker alternative to stemming/completing 
 ReplaceText <- content_transformer(function(x, from, to) gsub(from, to, x))
-text <- tm_map(text, ReplaceText, "\\bpresidentes\\b", "presidente")
+#text <- tm_map(text, ReplaceText, "\\bpresidentes\\b", "presidente")
 text <- tm_map(text, ReplaceText, "\\breducción\\b", "reducir")
 text <- tm_map(text, ReplaceText, "\\breduzcan\\b", "reducir")
 text <- tm_map(text, ReplaceText, "\\beducacion\\b", "educación")
@@ -82,7 +84,7 @@ text <- tm_map(text, ReplaceText, "\\bmejores\\b", "mejor")
 text <- tm_map(text, ReplaceText, "\\brenuncia\\b", "renuncie")
 text <- tm_map(text, ReplaceText, "\\beliminación\\b", "eliminar")
 text <- tm_map(text, ReplaceText, "\\belimine\\b", "eliminar")
-text <- tm_map(text, ReplaceText, "\\bpolítico\\b", "políticos")
+#text <- tm_map(text, ReplaceText, "\\bpolítico\\b", "políticos")
 text <- tm_map(text, ReplaceText, "\\bpensiones\\b", "pensión")
 text <- tm_map(text, ReplaceText, "\\bvitalicias\\b", "vitalicia")
 text <- tm_map(text, ReplaceText, "\\bcandidato\\b", "candidatos")
@@ -90,7 +92,10 @@ text <- tm_map(text, ReplaceText, "\\bdisminución\\b", "reducir")
 text <- tm_map(text, ReplaceText, "\\bdisminuir\\b","reducir") 
 text <- tm_map(text, ReplaceText, "\\bdisminuya\\b", "reducir") 
 text <- tm_map(text, ReplaceText, "\\breduzca\\b", "reducir")
-text <- tm_map(text, ReplaceText, "\\bderechos\\b", "derecho")
+text <- tm_map(text, ReplaceText, "\\bbajen\\b", "reducir")
+text <- tm_map(text, ReplaceText, "\\bbajar\\b", "reducir")
+text <- tm_map(text, ReplaceText, "\\bnumero\\b", "número")
+#text <- tm_map(text, ReplaceText, "\\bderechos\\b", "derecho")
 text <- tm_map(text, ReplaceText, "\\bfamilias\\b", "familia")
 text <- tm_map(text, ReplaceText, "\\bpolicias\\b", "policía")
 text <- tm_map(text, ReplaceText, "\\bpolicías\\b", "policía")
@@ -111,12 +116,14 @@ text <- tm_map(text, ReplaceText, "\\bservidores\\b", "funcionario")
 text <- tm_map(text, ReplaceText, "\\bpresupuesto\\b", "dinero")
 text <- tm_map(text, ReplaceText, "\\brecursos\\b", "dinero")
 text <- tm_map(text, ReplaceText, "\\bdineros\\b", "dinero")
-text <- tm_map(text, ReplaceText, "\\bciudadanos\\b", "mexicanos")
+text <- tm_map(text, ReplaceText, "\\bmexicano\\b", "mexicanos")
+text <- tm_map(text, ReplaceText, "\\brepublica\\b", "república")
+#text <- tm_map(text, ReplaceText, "\\bciudadanos\\b", "mexicanos")
 text <- tm_map(text, ReplaceText, "\\bciudadano\\b", "mexicanos")
 text <- tm_map(text, ReplaceText, "\\bgente\\b", "mexicanos")
 text <- tm_map(text, ReplaceText, "\\bpersonas\\b", "mexicanos")
 text <- tm_map(text, ReplaceText, "\\bpueblo\\b", "mexicanos")
-text <- tm_map(text, ReplaceText, "\\bsociedad\\b", "mexicanos")
+#text <- tm_map(text, ReplaceText, "\\bsociedad\\b", "mexicanos")
 text <- tm_map(text, ReplaceText, "\\bciudadanía\\b", "mexicanos")
 text <- tm_map(text, ReplaceText, "\\baño\\b", "años")
 text <- tm_map(text, ReplaceText, "\\bcreación\\b", "crear")
@@ -138,10 +145,13 @@ inspect(text[1:10])
 # CREATE TERM DOCUMENT MATRIX TO EXPLORE WORD FREQUENCIES
 
 tdm <- TermDocumentMatrix(text)          # creates matrix
+nDocs(tdm)                               # verifies number of unique documents (postcards)
+nTerms(tdm)                              # gets number of unique terms in corpus
+inspect(tdm[1:10, 1:10])                 # verifies sample contents of matrix
+inspect(removeSparseTerms(tdm[1:10, 1:10], 0.8))
 FreqTerms <- findFreqTerms(tdm, 50)      # identify most common words in dataset
 # dict <- unique(rownames(as.matrix(tdm)))   # creates dictionary of unique words
 
-# creates a file with (sorted) word frequencies 
 frequencies <- rowSums(as.matrix(tdm))
 names(frequencies) <- rownames(as.matrix(tdm))
 frequencies <- sort(frequencies, decreasing=T)
@@ -173,7 +183,7 @@ PhrasePrimer <- function(wordlist, corr = 0.1, perc = 0.1) {
         word <- w
         phrase <- w
         for (j in bag$Row.names) {
-            if (bag$perc[bag$Row.names == j] > perc){              # drops sparse terms
+            if (bag$perc[bag$Row.names == j] >= perc){              # drops sparse terms
             phrase <- c(phrase, j)
             }
         }    
@@ -187,13 +197,13 @@ PhrasePrimer <- function(wordlist, corr = 0.1, perc = 0.1) {
     phrase.list <- phrase.list[-1, ]
     enc2utf8(as(phrase.list$word, "character"))
     enc2utf8(as(phrase.list$phrase, "character"))
-    write.table(phrase.list$phrase, "data/raw_phrases.txt", sep="\t", quote = FALSE, 
+    write.table(phrase.list$phrase, "data/processed/raw_phrases_150121.txt", sep="\t", quote = FALSE, 
                 row.names = FALSE, fileEncoding = "UTF-8")
-    write.table(phrase.list, "data/data_phrases.txt", sep="\t", quote = FALSE, 
+    write.table(phrase.list, "data/processed/data_phrases_150121.txt", sep="\t", quote = FALSE, 
                 row.names = FALSE, fileEncoding = "UTF-8")
 }
 
-common.words <- rownames(frequencies)[1:150]          # gets 100 most common terms in text
+common.words <- rownames(frequencies)[1:200]          # gets 100 most common terms in text
 PhrasePrimer(common.words, corr = 0.1, perc = 0.15)   # applies function to distill phrase elements
 
 
@@ -204,12 +214,13 @@ FrequencyFinder <-function(term) {                             # produces freque
     print(paste0(term, " appears ", f, " times"))
 }
 
-ClusterFinder <- function(wordlist, corr = 0.1, perc = 0.1) { # produces all useful info for word 
+ClusterFinder <- function(wordlist, corr = 0.1, perc = 0.1, matrix = tdm ) { # produces all useful info for word 
+    frequencies <- rowSums(as.matrix(matrix))
     word <- NA
     phrase <- NA
     phrase.list <- data.frame(word, phrase)    
     for (w in wordlist) {
-        correlates <- as.data.frame(findAssocs(tdm, w, corr))      # gets list of correlated words
+        correlates <- as.data.frame(findAssocs(matrix, w, corr))   # gets list of correlated ngrams
         bag <- merge(correlates, frequencies, by = "row.names")    # creates dataframe w corr/freq    
         bag$perc <- bag$freq/frequencies$freq[rownames(frequencies) == w]  # computes percentages
         word <- w
@@ -230,29 +241,78 @@ ClusterFinder <- function(wordlist, corr = 0.1, perc = 0.1) { # produces all use
 }
 
 # AN INITIAL LOOK INTO NGRAMS
+# BIGRAMS 
 
-body <- tolower(as.vector(paste(proposals, collapse = " ")))  # makes lowercase
-#body <- tolower(proposals[1])            # makes lowercase
-body <- gsub("[[:punct:]]", "", body)    # removes punctuation
-body <- gsub("[[:digit:]]", "", body)    # removes numbers
-for (sw in stopwords) {                  # removes stopwords
-    body <- gsub(paste0('\\b', sw, '\\b'), "", body)
-}
-body <- str_trim(body)                   # removes most whitespace
+# 1) Generate bigrams from the original NLP-processed text
 
-bigrams <- ngram(body, n=2)
-get.ngrams(bigrams)
-bi_grams <- get.ngrams(bigrams)
+options(mc.cores=1)                 # Sets the default number of threads to use
+BigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
+BigramTDM <- TermDocumentMatrix(text, control = list(tokenize = BigramTokenizer))
+nDocs(BigramTDM)                               # verifies number of unique documents (postcards)
+nTerms(BigramTDM)                              # provides number of unique bigrams 
+inspect(BigramTDM[1:10, 1:10])                 # inspection of sample of matrix
 
-for (i in 1:50) {
-    print(paste0(bi_grams[i], " appears ", sum(str_count(bi_grams, bi_grams[i])), " times"))
-}
+# 2) A closer look at most frequent bigrams
+
+Bi.frequencies <- rowSums(as.matrix(BigramTDM))
+names(Bi.frequencies) <- rownames(as.matrix(BigramTDM))
+Bi.frequencies <- sort(Bi.frequencies, decreasing=T)
+Bi.frequencies <- as.data.frame(Bi.frequencies)
+names(Bi.frequencies) <- c("freq")
+Bi.frequencies[1:100, "freq", drop=FALSE]    # shows 150 most common words
 
 
-trigrams <- ngram(body, n=3)
-get.ngrams(trigrams)
-quadgrams <- ngram(body, n=4)
-get.ngrams(quadgrams)
+wordcloud(rownames(BigramTDM), BigramTDM$freq scale=c(4.5,0.6), 
+          min.freq=90, random.order=FALSE,
+          rot.per=0.35, use.r.layout=TRUE, 
+          colors=brewer.pal(8, "Dark2"))
+
+
+# TRIGRAMS 
+
+# 1) Generate trigrams from the original NLP-processed text
+
+options(mc.cores=1)                 # Sets the default number of threads to use
+TrigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
+TrigramTDM <- TermDocumentMatrix(text, control = list(tokenize = TrigramTokenizer))
+nDocs(TrigramTDM)                               # verifies number of unique documents (postcards)
+nTerms(TrigramTDM)                              # provides number of unique bigrams 
+inspect(TrigramTDM[1:10, 1:10])                 # inspection of sample of matrix
+
+# 2) A closer look at most frequent bigrams
+
+Tri.frequencies <- rowSums(as.matrix(TrigramTDM))
+names(Tri.frequencies) <- rownames(as.matrix(TrigramTDM))
+Tri.frequencies <- sort(Tri.frequencies, decreasing=T)
+Tri.frequencies <- as.data.frame(Tri.frequencies)
+names(Tri.frequencies) <- c("freq")
+Tri.frequencies[1:100, "freq", drop=FALSE]    # shows 150 most common words
+
+
+
+
+
+FrequentTerms(BigramTDM)                       # generates Term/Freq matrix
+frequencies[1:50, "freq", drop=FALSE]          # shows 50 most common words
+
+
+findFreqTerms(BigramTDM, 50)   
+
+
+
+
+# find bigrams that have 'love' in them
+love_bigrams <- txtTdmBi$dimnames$Terms[grep("love", txtTdmBi$dimnames$Terms)]
+
+# keep only bigrams where 'love' is not the first word
+# to avoid counting 'love' twice and so we can subset 
+# based on the preceeding word
+require(Hmisc)
+love_bigrams <- love_bigrams[sapply(love_bigrams, function(i) first.word(i)) != 'love']
+# exclude the specific bigram 'not love'
+love_bigrams <- love_bigrams[!love_bigrams == 'not love']
+
+
 
 
 
@@ -262,10 +322,11 @@ get.ngrams(quadgrams)
 
 setwd("~/Documents/#YaMeCanse_postales/graphs")
 pdf("wordcloud_all.pdf")
-jpeg("wordcloud_all.jpeg", quality = 100)
-png("wordcloud_all.png")
-wordcloud(text, scale=c(3,0.3), min.freq=100, random.order=FALSE, 
-          rot.per=0.35, use.r.layout=FALSE, 
+png("wordcloud_all.png", width=5.25,height=5.25,units="in",res=1200)
+#jpeg("wordcloud_all.jpeg", width=5.25,height=5.25,units="in",res=1200)
+set.seed(1235)
+wordcloud(text, scale=c(4.5,0.6), min.freq=90, random.order=FALSE,
+          rot.per=0.35, use.r.layout=TRUE, 
           colors=brewer.pal(8, "Dark2"))
 dev.off()
 
