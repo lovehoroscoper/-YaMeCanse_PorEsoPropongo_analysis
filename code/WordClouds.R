@@ -214,13 +214,14 @@ FrequencyFinder <-function(term) {                             # produces freque
     print(paste0(term, " appears ", f, " times"))
 }
 
-ClusterFinder <- function(wordlist, corr = 0.1, perc = 0.1, matrix = tdm ) { # produces all useful info for word 
-    frequencies <- rowSums(as.matrix(matrix))
+# a function to visualize relevant information on ngram cluster
+
+ClusterFinder <- function(wordlist, corr = 0.1, perc = 0.1) { 
     word <- NA
     phrase <- NA
     phrase.list <- data.frame(word, phrase)    
     for (w in wordlist) {
-        correlates <- as.data.frame(findAssocs(matrix, w, corr))   # gets list of correlated ngrams
+        correlates <- as.data.frame(findAssocs(tdm, w, corr))   # gets list of correlated ngrams
         bag <- merge(correlates, frequencies, by = "row.names")    # creates dataframe w corr/freq    
         bag$perc <- bag$freq/frequencies$freq[rownames(frequencies) == w]  # computes percentages
         word <- w
@@ -259,62 +260,36 @@ names(Bi.frequencies) <- rownames(as.matrix(BigramTDM))
 Bi.frequencies <- sort(Bi.frequencies, decreasing=T)
 Bi.frequencies <- as.data.frame(Bi.frequencies)
 names(Bi.frequencies) <- c("freq")
-Bi.frequencies[1:100, "freq", drop=FALSE]    # shows 150 most common words
+Bi.frequencies[1:10, "freq", drop=FALSE]    # shows 150 most common words
 
 
-wordcloud(rownames(BigramTDM), BigramTDM$freq scale=c(4.5,0.6), 
-          min.freq=90, random.order=FALSE,
-          rot.per=0.35, use.r.layout=TRUE, 
-          colors=brewer.pal(8, "Dark2"))
+BigramClusterFinder <- function(wordlist, corr = 0.1, perc = 0.1) { 
+    word <- NA
+    phrase <- NA
+    phrase.list <- data.frame(word, phrase)    
+    for (w in wordlist) {
+        Bi.correlates <- as.data.frame(findAssocs(BigramTDM, w, corr))   
+        bag <- merge(Bi.correlates, Bi.frequencies, by = "row.names")    
+        bag$perc <- bag$freq/Bi.frequencies$freq[rownames(Bi.frequencies) == w]  
+        word <- w
+        phrase <- w
+        for (j in bag$Row.names) {
+            if (bag$perc[bag$Row.names == j] >= perc){              # drops sparse terms
+                phrase <- c(phrase, j)
+            }
+        }    
+        phrase <- paste(phrase, collapse = " ")                    # makes phrase elements
+        newrow <- c(word, phrase) 
+        phrase.list <- rbind(phrase.list, newrow)
+        f <- Bi.frequencies$freq[rownames(Bi.frequencies) == wordlist]
+        print(paste0(w, " appears ", f, " times"))
+        print(bag)
+        print(paste0("cluster: ", phrase))
+    }
+}
 
-
-# TRIGRAMS 
-
-# 1) Generate trigrams from the original NLP-processed text
-
-options(mc.cores=1)                 # Sets the default number of threads to use
-TrigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
-TrigramTDM <- TermDocumentMatrix(text, control = list(tokenize = TrigramTokenizer))
-nDocs(TrigramTDM)                               # verifies number of unique documents (postcards)
-nTerms(TrigramTDM)                              # provides number of unique bigrams 
-inspect(TrigramTDM[1:10, 1:10])                 # inspection of sample of matrix
-
-# 2) A closer look at most frequent bigrams
-
-Tri.frequencies <- rowSums(as.matrix(TrigramTDM))
-names(Tri.frequencies) <- rownames(as.matrix(TrigramTDM))
-Tri.frequencies <- sort(Tri.frequencies, decreasing=T)
-Tri.frequencies <- as.data.frame(Tri.frequencies)
-names(Tri.frequencies) <- c("freq")
-Tri.frequencies[1:100, "freq", drop=FALSE]    # shows 150 most common words
-
-
-
-
-
-FrequentTerms(BigramTDM)                       # generates Term/Freq matrix
-frequencies[1:50, "freq", drop=FALSE]          # shows 50 most common words
-
-
-findFreqTerms(BigramTDM, 50)   
-
-
-
-
-# find bigrams that have 'love' in them
-love_bigrams <- txtTdmBi$dimnames$Terms[grep("love", txtTdmBi$dimnames$Terms)]
-
-# keep only bigrams where 'love' is not the first word
-# to avoid counting 'love' twice and so we can subset 
-# based on the preceeding word
-require(Hmisc)
-love_bigrams <- love_bigrams[sapply(love_bigrams, function(i) first.word(i)) != 'love']
-# exclude the specific bigram 'not love'
-love_bigrams <- love_bigrams[!love_bigrams == 'not love']
-
-
-
-
+common.bigrams <- rownames(Bi.frequencies)[1:10]
+BigramClusterFinder("mexicanos mexicanos", corr = 0.2, perc = 0.1)
 
 
 # CREATES WORDCLOUDS
@@ -352,3 +327,11 @@ smallClouds <- function(word) {
 for (i in FreqTerms) {
     smallClouds(i)
 }
+
+# finally, an example of how a wordcloud for bigrams would look like
+
+wordcloud(rownames(Bi.frequencies), Bi.frequencies$freq, scale=c(2.5,0.6), 
+          min.freq=20, random.order=FALSE,
+          rot.per=0.35, use.r.layout=TRUE, 
+          colors=brewer.pal(8, "Dark2"))
+
